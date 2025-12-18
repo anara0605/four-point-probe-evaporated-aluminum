@@ -1,0 +1,126 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+def SI(n):
+    return n*(n+1)/2.0
+
+
+url="https://docs.google.com/spreadsheets/d/e/2PACX-1vR6H8oCoP3OrSYPmxlE6X2n2V38_8QLtjKJWvALPBL_-wrskxFix4NdeDg0usHEnAhmuAZhbjfz0s72/pub?gid=0&single=true&output=csv"
+
+data = pd.read_csv(url, low_memory=False)
+data=pd.DataFrame(data)
+variables=list(data.columns)
+
+## Print Out Descriptives for Rs for Post
+series = data["Rs1"]
+print("Descriptives for Position 1")
+print (series.describe())
+print("Descriptives for Position 2")
+series = data["Rs2"]
+print (series.describe())
+print("Descriptives for Position 3")
+series = data["Rs3"]
+print (series.describe())
+print("Descriptives for Position 4")
+series = data["Rs4"]
+print (series.describe())
+print("Descriptives for Position 5")
+series = data["Rs5"]
+print (series.describe())
+
+
+array1 = data['Rs1'].to_numpy()
+array2 = data['Rs2'].to_numpy()
+array3 = data['Rs3'].to_numpy()
+array4 = data['Rs4'].to_numpy()
+array5 = data['Rs5'].to_numpy()
+time=  data['Time'].to_numpy()
+
+Position1=array1
+Position2=array2
+Position3=array3
+Position4=array4
+Position5=array5
+pos_stats = {}
+Positions = ['Rs1', 'Rs2', 'Rs3', 'Rs4', 'Rs5']
+for Position in Positions:
+    mean_val = data[Position].mean()
+    std_val = data[Position].std(ddof=1)
+    percent_var = (std_val / mean_val) * 100
+    pos_stats[Position] = {'Mean': mean_val, 'StdDev': std_val, '%Variation': percent_var}
+
+# Convert to DataFrame for easier viewing
+pos_stats_df = pd.DataFrame(pos_stats).T
+avg_variation = pos_stats_df['%Variation'].mean()
+
+print(pos_stats_df)
+print(f"\nAverage positional variation across all positions: {avg_variation:.1f}%")
+
+
+l0="Average (5 points per wafer)"
+l1="Postion 1"
+l2="Postion 2"
+l3="Postion 3"
+l4="Postion 4"
+l5="Postion 5"
+fig, (ax1) = plt.subplots(1,figsize=(8,4))
+
+Rs_ave = []
+Rs_var_percent = []
+
+j = 0
+for i in range(0, len(time)):
+
+    ave = (Position1[j] + Position2[j] + Position3[j] +
+           Position4[j] + Position5[j]) / 5.0
+    Rs_ave.append(ave)
+
+    j = j + 1
+
+
+ax1.plot(time, Rs_ave,marker=">", linewidth=2, color='grey',label=l0)
+ax1.plot(time, Position1,marker="v", linewidth=2, color='red',label=l1)
+ax1.plot(time, Position2,marker="o", linewidth=2, color='blue',label=l2)
+ax1.plot(time, Position3,marker="^", linewidth=2, color='green',label=l3)
+ax1.plot(time, Position4,marker="<", linewidth=2, color='orange',label=l4)
+ax1.plot(time, Position5,marker=">", linewidth=2, color='yellow',label=l5)
+ax1.legend()
+ax1.set_xlabel('Time (s)',fontsize=15)
+ax1.set_ylabel('$R_s$ ($\Omega$ per square )',fontsize=15)
+
+
+df = pd.DataFrame()
+df['Time'] = time
+df['Rs_ave'] = Rs_ave
+print("descriptives average)")
+print(df['Rs_ave'].describe())
+variables=list(df.columns)
+print(variables)
+y =variables[1]
+x = [var for var in variables if var not in y ]
+model_s = sm.OLS(df[y], df[x]).fit()
+model = sm.OLS(df[y], sm.add_constant(df[x])).fit()
+
+print (model.summary())
+
+df['Model'] =      df.apply(lambda row: model.params[0]+row.Time*(model.params[1]),  axis=1)
+variables = list(df.columns)
+fig, ax = plt.subplots(figsize=(8,6))
+x_wafer=variables[0]
+y_thickness=variables[1]
+y_model=variables[2]
+
+print(model.params)
+
+
+Label=str('Model: $R_s$ ={}$\\times $ Time+{}').format(round(model.params[1]/1e-03,4),round(model.params[0]/1e-3,4))
+df.plot(kind='line',    x=x_wafer, y=y_model, style='g',  ax=ax, label=Label, fontsize=15)
+Label='Average (5 points)'
+color='b'
+marker='s'
+df.plot(kind='scatter', x=x_wafer, y=y_thickness, color=color, marker=marker, ax=ax, label=Label,  fontsize=15)
+ax.set_xlabel('Time (s)',fontsize=15)
+ax.set_ylabel('$R_s m \Omega$ per Square',fontsize=15)
+plt.legend()
+plt.show()
